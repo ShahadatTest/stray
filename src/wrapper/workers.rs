@@ -46,7 +46,8 @@ struct KeyWriter<W> {
 impl<W: Write> Write for KeyWriter<W> {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         let count = self.writer.write(bytes)?;
-        if count > 0 {
+        // Always forward focus reports to the shell; only skip waking the cat.
+        if count > 0 && !is_focus_report(&bytes[..count]) {
             self.typed.store(true, Ordering::Relaxed);
         }
         Ok(count)
@@ -55,6 +56,11 @@ impl<W: Write> Write for KeyWriter<W> {
     fn flush(&mut self) -> std::io::Result<()> {
         self.writer.flush()
     }
+}
+
+/// True when this write is only a terminal focus-in or focus-out report.
+fn is_focus_report(bytes: &[u8]) -> bool {
+    bytes == stray_cat::escape::FOCUS_IN || bytes == stray_cat::escape::FOCUS_OUT
 }
 
 /// Stops the signal thread when it leaves scope.
@@ -547,6 +553,26 @@ mod tests {
         forward_input(&b"ls"[..], writer)?;
         assert_eq!(shell, b"ls");
         assert!(typed.load(Ordering::Relaxed));
+        Ok(())
+    }
+
+    #[test]
+    fn focus_reports_reach_the_shell_without_raising_the_flag() -> Result<()> {
+        for report in [stray_cat::escape::FOCUS_IN, stray_cat::escape::FOCUS_OUT] {
+            let typed = Arc::new(AtomicBool::new(false));
+            let mut shell = Vec::new();
+            let writer = KeyWriter {
+                writer: &mut shell,
+                typed: Arc::clone(&typed),
+            };
+            forward_input(report, writer)?;
+            assert_eq!(shell, report);
+            assert!(
+                !typed.load(Ordering::Relaxed),
+                "focus report {:?} should not wake the cat",
+                report
+            );
+        }
         Ok(())
     }
 }

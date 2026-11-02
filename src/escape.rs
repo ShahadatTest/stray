@@ -61,6 +61,14 @@ pub const RESET_SCROLL_REGION: &[u8] = b"\x1b[r";
 /// Clears the screen from the cursor down.
 pub const CLEAR_BELOW: &[u8] = b"\x1b[J";
 
+/// Focus gained (`CSI I`). Sent when focus reporting is enabled and the window
+/// becomes active. Not a keystroke — the cat should ignore it (#19).
+pub const FOCUS_IN: &[u8] = b"\x1b[I";
+
+/// Focus lost (`CSI O`). Sent when focus reporting is enabled and the window
+/// becomes inactive. Not a keystroke — the cat should ignore it (#19).
+pub const FOCUS_OUT: &[u8] = b"\x1b[O";
+
 /// Puts the terminal back to normal when the bar goes away, in this order:
 /// cancel unfinished output, end synchronized updates, turn origin mode off,
 /// and let the whole screen scroll.
